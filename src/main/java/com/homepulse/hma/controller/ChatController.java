@@ -1,6 +1,8 @@
 package com.homepulse.hma.controller;
 
 import com.homepulse.hma.service.ChatService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/chat")
 public class ChatController {
 
+    private static final Logger log = LoggerFactory.getLogger(ChatController.class);
     private final ChatService chatService;
 
     public ChatController(ChatService chatService) {
@@ -22,7 +25,9 @@ public class ChatController {
                 ? request.conversationId() 
                 : "default-session";
         
+        log.info("Received chat request on /api/chat. Session ID: '{}', Message: '{}'", sessionId, request.message());
         String reply = chatService.chat(request.message(), sessionId);
+        log.info("Sending chat reply: '{}'", reply);
         return new ChatResponse(reply);
     }
 

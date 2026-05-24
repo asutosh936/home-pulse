@@ -52,4 +52,19 @@ class MaintenanceToolsTest {
         assertEquals("Item 3", recent.get(0).getItemName());
         assertEquals("Item 2", recent.get(1).getItemName());
     }
+
+    @Test
+    void testLogMaintenanceDuplicate() {
+        // First call should save successfully
+        String firstResult = maintenanceTools.logMaintenance("Dyson vacuum", "replaced HEPA filter", "Filter was dirty");
+        assertTrue(firstResult.contains("Successfully logged maintenance"));
+
+        // Second identical call on the same day should be blocked
+        String secondResult = maintenanceTools.logMaintenance("Dyson vacuum", "replaced HEPA filter", "Filter was dirty");
+        assertTrue(secondResult.contains("already logged today"));
+
+        // Database should still contain only 1 record
+        List<MaintenanceLog> logs = maintenanceRepository.findAll();
+        assertEquals(1, logs.size());
+    }
 }

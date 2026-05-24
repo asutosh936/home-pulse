@@ -32,4 +32,26 @@ class ChatControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.response").value("hi there"));
     }
+
+    @Test
+    void testChatEndpointWithNullConversationId() throws Exception {
+        when(chatService.chat("hello", "default-session")).thenReturn("hi there");
+
+        mockMvc.perform(post("/api/chat")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"hello\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.response").value("hi there"));
+    }
+
+    @Test
+    void testChatEndpointWithBlankConversationId() throws Exception {
+        when(chatService.chat("hello", "default-session")).thenReturn("hi there");
+
+        mockMvc.perform(post("/api/chat")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"hello\",\"conversationId\":\"   \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.response").value("hi there"));
+    }
 }
