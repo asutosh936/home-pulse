@@ -54,8 +54,8 @@ The main conversation loop is exposed at the `/api/chat` endpoint.
 ### Request Body
 ```json
 {
-  "message": "Hey, I just replaced the HEPA filter in my Dyson vacuum today.",
-  "conversationId": "my-session-id"
+  "message": "I replaced the HVAC filter 95 days ago.",
+  "conversationId": "reminder-session"
 }
 ```
 *Note: `conversationId` is optional. If not provided, it defaults to `"default-session"`.*
@@ -63,7 +63,7 @@ The main conversation loop is exposed at the `/api/chat` endpoint.
 ### Response Body
 ```json
 {
-  "response": "Successfully logged maintenance: MaintenanceLog{id=1, itemName='Dyson vacuum', action='replaced HEPA filter', date=2026-05-24, notes='null'}"
+  "response": "Successfully logged maintenance: MaintenanceLog{id=1, itemName='HVAC', action='replaced filter', date=2026-05-24, notes='...' }"
 }
 ```
 
@@ -71,7 +71,7 @@ The main conversation loop is exposed at the `/api/chat` endpoint.
 ```bash
 curl -X POST http://localhost:8080/home-pulse/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Hey, I just replaced the HEPA filter in my Dyson vacuum today."}'
+  -d '{"message":"I replaced the HVAC filter 95 days ago.","conversationId":"reminder-session"}'
 ```
 
 ---
@@ -83,6 +83,90 @@ You can view the tables and check entries directly via the H2 Web Console:
 - **JDBC URL**: `jdbc:h2:mem:hmadb`
 - **Username**: `sa`
 - **Password**: `password`
+
+---
+
+## Proactive Notification System
+
+HearthKeeper now includes a proactive reminder flow for upcoming home maintenance tasks.
+
+### How it works
+- `MaintenanceManager` runs on a configurable cron schedule via `hma.notification.cron`.
+- By default, it triggers every day at 9:00 AM using `0 0 9 * * ?`.
+- `MaintenanceContextService` summarizes recent maintenance logs and user history.
+- The AI agent evaluates the context and calls `NotificationService.sendNotification(String message)` when a reminder is needed.
+- `NotificationService` logs the notification and stores it in the H2 database for later review.
+
+### Configuration
+Add or update the user history preference in `src/main/resources/application.properties`:
+```properties
+hma.user-history=The user prefers morning reminders and is currently busy with home projects.
+```
+Add or override the scheduler cron expression to control how often the proactive review runs:
+```properties
+hma.notification.cron=0 0 9 * * ?
+```
+This helps the agent choose the right tone and timing for proactive reminders.
+
+### Validation
+1. Start the application:
+```bash
+mvn spring-boot:run
+```
+2. Use the `/api/chat` endpoint to log maintenance tasks, especially recurring items like filters or batteries.
+3. Confirm older maintenance entries exist in the H2 console or logs.
+4. Check application logs for the daily review and any lines prefixed with `Proactive notification:`.
+
+For faster local validation, override the scheduler to run every minute by setting:
+```properties
+hma.notification.cron=0 * * * * ?
+```
+Then restart the application and watch the logs for repeated review cycles.
+
+### Notification endpoints
+- `GET http://localhost:8080/home-pulse/api/notifications` — returns all sent proactive reminders.
+- `POST http://localhost:8080/home-pulse/api/admin/maintenance-review` — triggers the maintenance review immediately.
+
+### Single validation via curl
+1. Log a recurring maintenance task:
+```bash
+curl -X POST http://localhost:8080/home-pulse/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"I replaced the HVAC filter 95 days ago.","conversationId":"reminder-session"}'
+```
+2. Trigger the review immediately:
+```bash
+curl -X POST http://localhost:8080/home-pulse/api/admin/maintenance-review
+```
+3. Verify the notification list:
+```bash
+curl http://localhost:8080/home-pulse/api/notifications
+```
+
+### Sample reminder scenario
+1. Log a recurring maintenance task:
+```bash
+curl -X POST http://localhost:8080/home-pulse/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"I replaced the HVAC filter 95 days ago.","conversationId":"reminder-session"}'
+```
+2. Wait for the scheduler to run at 9:00 AM (or adjust the cron expression for local testing).
+3. Look for a console log similar to:
+```text
+Proactive notification: I know you've been busy, but your HVAC filter is due for a replacement soon.
+```
+4. If the system decides no reminder is needed, you should still see the daily review log entry.
+
+### Validation via Maven test
+Run the focused notification persistence test:
+```bash
+mvn -Dtest=NotificationPersistenceIntegrationTest test
+```
+
+For the full notification flow, run:
+```bash
+mvn -Dtest=NotificationServiceTest,NotificationPersistenceIntegrationTest,MaintenanceManagerTest test
+```
 
 ---
 

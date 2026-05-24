@@ -54,4 +54,16 @@ class ChatControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.response").value("hi there"));
     }
+
+    @Test
+    void testChatEndpointWithSampleCurlPayload() throws Exception {
+        when(chatService.chat("I replaced the HVAC filter 95 days ago.", "reminder-session"))
+                .thenReturn("Successfully logged maintenance: HVAC filter replacement recorded.");
+
+        mockMvc.perform(post("/api/chat")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"I replaced the HVAC filter 95 days ago.\",\"conversationId\":\"reminder-session\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.response").value("Successfully logged maintenance: HVAC filter replacement recorded."));
+    }
 }
